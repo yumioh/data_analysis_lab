@@ -12,7 +12,7 @@
 ## 3. Document
 - 하나의 키와 값의 집합
 
-<br/>
+## RDBMS vs MongoDB
 
 |RDBMS|MongoDB|
 |------|---|
@@ -27,26 +27,52 @@
 <br/>
 
 ## 4. 기본쿼리 
-- 데이터 삽입 : db.users.insetOne( json 형태로 삽입)
-- 데이터 찾기 : db.users.find( {key : value})
+- 데이터 삽입 : db.users.insetOne()
+- 데이터 찾기 : db.users.find({key : value})
 - 데이터 수정 : db.users.updateMany({key : value})
 - 데이터 삭제 : db.users.deleteMany({key: value})
+- mongoDB는 인덱스가 없다면 full scan 방식을 사용. <br/> 또한 콜렉션 생성시 _id 필드를 생성하지 않으면 자동으로 id 필드 object id값 설정 (중복방지)
 
-* mongoDB는 인덱스가 없다면 full scan 방식을 사용. 또한 콜렉션 생성시 _id 필드를 생성하지 않으면 자동으로 id 필드 object id값 설정 (중복방지)
+## 5. 조건쿼리
+- $and : 해당하는  조건의 모든 문서를 찾음
+  ```
+    { $and: [ { scores: 75, name: "Greg Powell" } ] }
+  ```
+- $or : 해당하는 or 조건으로 찾음
+  ```
+  { $or: [ { version: 4 }, { name: "Andrea Le" } ] }
+  ```
+- $not : 제외 적용
+  ```
+  { name: { $not: { $eq: "Andrea Le" } } }
+  
+  ```
+- 비교연산자 
 
 
-## 5. GridFS
-- 파일을 단일 문서에 저장하는 대신 파일을 청크로 나누고 각 청크를 별도의 문서로 저장. 마지막 청크를 제외하고 244kB 크기로 나눔. (기본 청크 GridFS : 255 kB)
+|이름|설명|
+|------|---|
+|$eq|지정된 값과 같은 값을 일치|
+|$gt|지정된 값보다 큰 값을 일치|
+|$gte|지정된 값보다 크거나 같은 값|
+|$in|배열에 지전된 값과 일|
+|$lt|지정된 값보다 작은값 일|
+|$lte|지정된 값보다 작거나 같은 값|
+|$ne|지정된 값과 같지 않은 모든 값|
+|$nin|배열에 지정된 값 중 어느 것과도 일치하지 않은 값|
+
+## 6. GridFS
+- 파일을 단일 문서에 저장하는 대신 파일을 청크로 나누고 각 청크를 별도의 문서로 저장. <br/> 마지막 청크를 제외하고 244kB 크기로 나눔. (기본 청크 GridFS : 255 kB)
 - 파일 청크(fs.files)와 파일 메타데이터(fs.chunks) 두 내용을 저장
-<br/>
-  1. GridFS 컬렉션 : chunks
+
+  ### 1. GridFS 컬렉션 : chunks
     - 바이너리 청크를 저장 
     ```
         {
-        "_id" : <ObjectId>,
-        "files_id" : <ObjectId>,
-        "n" : <num>,
-        "data" : <binary>
+          "_id" : <ObjectId>,
+          "files_id" : <ObjectId>,
+          "n" : <num>,
+          "data" : <binary>
         }
 
     ```
@@ -55,20 +81,19 @@
     - n : 청크의 시퀸스 번호 (0부터 시작)
     - data : BSON Binary 유형
 
-<br/>
-  2. GridFS 컬렉션 : files
+  ### 2. GridFS 컬렉션 : files
     - 파일의 메타데이터 저장
     ```
         {
-        "_id" : <ObjectId>,
-        "length" : <num>,
-        "chunkSize" : <num>,
-        "uploadDate" : <timestamp>,
-        "md5" : <hash>,
-        "filename" : <string>,
-        "contentType" : <string>,
-        "aliases" : <string array>,
-        "metadata" : <any>
+          "_id" : <ObjectId>,
+          "length" : <num>,
+          "chunkSize" : <num>,
+          "uploadDate" : <timestamp>,
+          "md5" : <hash>,
+          "filename" : <string>,
+          "contentType" : <string>,
+          "aliases" : <string array>,
+          "metadata" : <any>
         }
 
     ```
