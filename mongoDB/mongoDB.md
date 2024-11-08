@@ -72,7 +72,7 @@
   ```
 - 특정필드만 출력하기(Projection) :1은 표시할 필드, 0은 표시하지 않을 필드
   ```
-  {"accd_nm" : { "$regex" : "굴착기"}},{"accd_nm":1, "prevent_measure" :1,"_id" : 0}
+  {"accd_nm" : { "$regex" : "테스트"}},{"accd_nm":1, "prevent_measure" :1,"_id" : 0}
   ```
 
 
