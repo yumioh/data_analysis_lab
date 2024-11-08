@@ -51,7 +51,7 @@
   { version: { $lte: 4 } }
   ```
   ```
-  { <field>: { $eq: <value> } }
+  { finename: { $eq: "test" } }
   ```
 
   |이름|설명|
