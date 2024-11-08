@@ -13,16 +13,15 @@
 - 하나의 키와 값의 집합
 
 ## RDBMS vs MongoDB
-
-|RDBMS|MongoDB|
-|------|---|
-|database|database|
-|collection|table|
-|document|row|
-|column|field|
-|index|index|
-|dbserver|mongod|
-|dbclient|mongo|
+  |RDBMS|MongoDB|
+  |------|---|
+  |database|database|
+  |collection|table|
+  |document|row|
+  |column|field|
+  |index|index|
+  |dbserver|mongod|
+  |dbclient|mongo|
 
 <br/>
 
@@ -51,17 +50,21 @@
   ```
   { version: { $lte: 4 } }
   ```
+  ```
+  { <field>: { $eq: <value> } }
+  ```
 
-|이름|설명|
-|------|---|
-|$eq|지정된 값과 같은 값을 일치|
-|$gt|지정된 값보다 큰 값을 일치|
-|$gte|지정된 값보다 크거나 같은 값|
-|$in|배열에 지전된 값과 일|
-|$lt|지정된 값보다 작은값 일|
-|$lte|지정된 값보다 작거나 같은 값|
-|$ne|지정된 값과 같지 않은 모든 값|
-|$nin|배열에 지정된 값 중 어느 것과도 일치하지 않은 값|
+  |이름|설명|
+  |------|---|
+  |$eq|지정된 값과 같은 값을 일치|
+  |$gt|지정된 값보다 큰 값을 일치|
+  |$gte|지정된 값보다 크거나 같은 값|
+  |$in|배열에 지전된 값과 일|
+  |$lt|지정된 값보다 작은값 일|
+  |$lte|지정된 값보다 작거나 같은 값|
+  |$ne|지정된 값과 같지 않은 모든 값|
+  |$nin|배열에 지정된 값 중 어느 것과도 일치하지 않은 값|
+<br/>
 
 - $regex : 해당하는 문자열이 포함된 모든 문서 찾기
   ```
