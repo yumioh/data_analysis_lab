@@ -12,16 +12,16 @@
 ## 3. Document
 - 하나의 키와 값의 집합
 
-## RDBMS vs MongoDB
-  |RDBMS|MongoDB|
+## MongoDB vs RDBMS
+  |MongoDB|RDBMS|
   |------|---|
   |database|database|
   |collection|table|
   |document|row|
-  |column|field|
+  |field|column|
   |index|index|
-  |dbserver|mongod|
-  |dbclient|mongo|
+  |mongod|dbserver|
+  |mongo|dbclient|
 
 <br/>
 
