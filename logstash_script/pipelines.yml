@@ -1,0 +1,15 @@
+- pipeline.id: cat_api
+  path.config: "/etc/logstash/conf.d/cat_api.conf"
+  pipeline.workers: 1
+
+- pipeline.id: seoul_safety_api
+  path.config: "/etc/logstash/conf.d/seoul_safety_api.conf"
+  pipeline.workers: 1
+
+- pipeline.id: kosha_api
+  path.config: "/etc/logstash/conf.d/kosha_api.conf"
+  pipeline.workers: 1
+
+- pipeline.id: seoul_bizinfo_api
+  path.config: "/etc/logstash/conf.d/seoul_bizinfo_api.conf"
+  pipeline.workers: 1 
