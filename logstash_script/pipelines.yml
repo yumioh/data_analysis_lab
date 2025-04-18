@@ -13,3 +13,7 @@
 - pipeline.id: seoul_bizinfo_api
   path.config: "/etc/logstash/conf.d/seoul_bizinfo_api.conf"
   pipeline.workers: 1 
+
+- pipeline.id: seoul_subway_api
+  path.config: "/etc/logstash/conf.d/seoul_subway_api.conf"
+  pipeline.workers: 1 
