@@ -7,6 +7,9 @@ from zlib import crc32
 
 from sklearn.model_selection import train_test_split
 from sklearn.model_selection import StratifiedShuffleSplit
+from pandas.plotting import scatter_matrix
+from sklearn.impute import SimpleImputer
+from sklearn.preprocessing import OrdinalEncoder
 
 import matplotlib.pyplot as plt
 
@@ -110,3 +113,96 @@ print(strat_test_set["income_cat"].value_counts() / len(strat_test_set))
 # axis=1 : 열
 for set_ in (strat_train_set, strat_test_set) :
     set_.drop("income_cat", axis=1, inplace=True)
+    
+
+housing = strat_train_set.copy()
+
+# 지리적 데이터 시각화하기
+housing.plot(kind="scatter", x="longitude", y="latitude", grid=True, alpha=0.2)
+plt.xlabel("경도")
+plt.ylabel("위도")
+#plt.show()
+
+# 주택가격 알아보기 
+# cmap : 색상 맵: 파란색(낮음) → 빨간색(높음)으로 색 표시
+housing.plot(kind="scatter", x="longitude", y="latitude", grid=True, 
+             s=housing["population"]/100, label="인구",
+             c="median_house_value", cmap="jet", colorbar=True,
+             legend=True, figsize=(10,7))
+cax = plt.gcf().get_axes()[1]
+cax.set_ylabel("중간 주택 가격")
+plt.xlabel("경도")
+plt.ylabel("위도")
+#plt.show()
+
+# 상관관계 조사 1 : 데이터셋이 크지 않아 모든 특성 간의 피어슨 상관계수 계산
+# corr(numeric_only=True) : 모든 숫자형 열끼리의 상관계쑤
+corr_matrix = housing.corr(numeric_only=True)
+corr_matrix["median_house_value"].sort_values(ascending=False) # 내림차순으로 정리
+
+# 상관관계 조사 2 :  scatter_matrix 함수를 사용
+
+atrributes = ["median_house_value", "median_income", "total_rooms", "housing_median_age"]
+
+# 산점도 그래프 그리기 
+scatter_matrix(housing[atrributes], figsize=(12,8))
+#plt.show()
+
+# 그래프를 보면 median_house_value 값이 가장 유의미한 변수로 보임
+housing.plot(kind="scatter", x="median_income", y="median_house_value", alpha=0.1, grid=True)
+plt.xlabel("중간 소득")
+plt.ylabel("중간 주택 가격")
+#plt.show()
+
+# 특정 조합으로 실험하기 
+housing["rooms_per_house"] = housing["total_rooms"] / housing["households"]
+housing["bedrooms_ratio"] = housing["total_bedrooms"] / housing["total_rooms"]
+housing["population_per_house"] = housing["population"] / housing["households"]
+
+corr_matrix = housing.corr(numeric_only=True)
+print(corr_matrix["median_house_value"].sort_values(ascending=False))
+
+# 입력데이터와 예측값에 같은 변형을 적용하지 않기 위해 예측변수와 레이블 분리 
+housing = strat_train_set.drop("median_house_value", axis=1) #열 제거 => 예측변수만 남김 
+housing_lables = strat_train_set["median_house_value"].copy() # 열만 따로 복사하여 저장 => 출력데이터만 들어가 있음
+
+# 데이터 정제 
+# 1. 해당 구역을 제거
+# 2. 전체 특성을 삭제
+# 3. 누락된 값을 대체값으로 채움
+
+# # 방법 1
+# housing.dropna(subset=["total_bedrooms"], inplace=True)
+
+# # 방법 2
+# housing.drop("total_bedrooms", axis=1, inplace=True)
+
+# 방법 3
+median = housing["total_bedrooms"].median()
+housing["total_bedrooms"].fillna(median, inplace=True) # 결측값이 존재하면, mdeian 값으로 대체 
+
+# 여러 열에 대해 한꺼번에 결측치 채우기 
+imputer = SimpleImputer(strategy="median")
+
+housing_num = housing.select_dtypes(include=[np.number]) # 숫자형 열만 선택ㅇ하여 새로운 데이터 프레임 생성
+imputer.fit(housing_num)
+
+# print(imputer.statistics_)
+# print(housing_num.median().values)
+
+X = imputer.transform(housing_num)
+
+housing_tr = pd.DataFrame(X, columns=housing_num.columns, index=housing_num.index)
+
+housing_cat = housing[["ocean_proximity"]]
+print(housing_cat.head(8))
+
+ordinal_encoder = OrdinalEncoder()
+housing_cat_encold = ordinal_encoder.fit_transform(housing_cat)
+
+print(ordinal_encoder.categories_)
+
+from sklearn.preprocessing import OneHotEncoder
+
+cat_encoder = OneHotEncoder()
+housing_cat_1hot = cat_encoder.fit_transform(housing_cat)
