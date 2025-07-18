@@ -5,11 +5,23 @@ import urllib.request
 import numpy as np
 from zlib import crc32
 
+from pandas.plotting import scatter_matrix
+
 from sklearn.model_selection import train_test_split
 from sklearn.model_selection import StratifiedShuffleSplit
-from pandas.plotting import scatter_matrix
-from sklearn.impute import SimpleImputer
+
 from sklearn.preprocessing import OrdinalEncoder
+from sklearn.preprocessing import OneHotEncoder
+from sklearn.preprocessing import MinMaxScaler
+from sklearn.preprocessing import StandardScaler
+
+from sklearn.metrics.pairwise import rbf_kernel
+from sklearn.linear_model import LinearRegression
+from sklearn.compose import TransformedTargetRegressor
+
+from sklearn.preprocessing import FunctionTransformer
+
+from sklearn.impute import SimpleImputer
 
 import matplotlib.pyplot as plt
 
@@ -202,7 +214,116 @@ housing_cat_encold = ordinal_encoder.fit_transform(housing_cat)
 
 print(ordinal_encoder.categories_)
 
-from sklearn.preprocessing import OneHotEncoder
 
 cat_encoder = OneHotEncoder()
 housing_cat_1hot = cat_encoder.fit_transform(housing_cat)
+
+# get_dummies() : 변주형 데이터를 숫자형 더미로 변환
+df_test = pd.DataFrame({"ocean_proximity" : ["INLAND", "NEAR BAY"]})
+pd.get_dummies(df_test)
+
+# 특성 스케일과 변환
+min_max_scaler = MinMaxScaler(feature_range=(-1,1))
+housing_num_min_max_scaled = min_max_scaler.fit_transform(housing_num)
+print(housing_num_min_max_scaled)
+
+std_scaler = StandardScaler()
+housing_num_std_scaled = std_scaler.fit_transform(housing_num)
+print(housing_num_std_scaled)
+
+# 주택 연령이 35와 유사도 계산
+# 거리가 가까울 수록 유사도는 1에 가깝고 멀어질수도록 0에 가까움
+# gamma=0.1 : 유사도에 영향을 주는 파라미터 (클수록 급격히 감소)
+age_simli_35 = rbf_kernel(housing[["housing_median_age"]], [[35]], gamma=0.1)
+
+# 레이블 스케일링 후 간단한 선형회귀 모델을 훈련하고 새로운 데이터에서 예측 
+# 변환기 메서드를 사용해 원본 스케일로 되돌림
+
+target_scaler = StandardScaler()
+scaled_labels = target_scaler.fit_transform(housing_lables.to_frame())
+model = LinearRegression()
+model.fit(housing[["median_income"]], scaled_labels)
+some_new_data = housing[["median_income"]].iloc[:5] # 5개 데이터만 들고 옴
+scaled_predictions = model.predict(some_new_data)
+predictions = target_scaler.inverse_transform(scaled_predictions)
+
+# 더 간단한 방법
+# 출력을 변환한 상태로 회귀 모델을 훈련하고 예측하는 예제
+# 회귀모델을 만들고 타깃값에만 스케이링 변환를 적용뒤 예측 결과를 다시 원래 단위로 되돌려주는 Regressor를 사용
+
+model = TransformedTargetRegressor(LinearRegression(), 
+                                   transformer=StandardScaler())
+model.fit(housing[["median_income"]], housing_lables)
+predictions = model.predict(some_new_data)
+print(predictions)
+
+# 로그 변환과 역변환을 자동으로 할 수 있도록 설정 한 후, 데이터에 로그 변환을 적용 
+log_transformer = FunctionTransformer(np.log, inverse_func=np.exp)
+log_pop = log_transformer.transform(housing[["population"]])
+
+# 주택 연령(housing_median_age) 데이터에 대해, "35와 얼마나 비슷한가?"를 유사도로 변환하는 자동 변환기를 만든 것
+# Y: 비교기준, GAMMAR : 감쇠값
+rbf_transformer = FunctionTransformer(rbf_kernel, 
+                                      kw_args=dict(Y=[[35,]], gamma=0.1))
+# RBF 유사도 진행 : 각 데이터가 35와 얼마나 유사한지 0~1 사이로 표현한 값
+age_simli_35 = rbf_transformer.transform(housing[["housing_median_age"]])
+
+sf_coords = 37.7749, -122.41
+sf_transformer = FunctionTransformer(rbf_kernel, 
+                                     kw_args=dict(Y=[sf_coords], gamma=0.1))
+sf_simil = sf_transformer.transform(housing[["latitude","longitude"]])
+print(sf_simil)
+
+# 첫번째 특성과 두번째 특성 사이의 비율 계산
+ratio_transformer = FunctionTransformer(lambda X: X[:, [0]] / X[:, [1]])
+ratio_transformer.transform(np.array([[1., 2], [3.,4.]]))
+
+# 사이킷런은 덕 타이핑에 의존하기 때문에 이 클래스가 특정 클래스를 상속할 필요가 없음
+# 정해진 클래스에 속하지 않아도 필요한 기능만 있으면 쓸수 있다 
+
+from sklearn.base import BaseEstimator, TransformerMixin
+from sklearn.utils.validation import check_array, check_is_fitted
+
+# StandardScsaler를 흉내 낸 사용자 정의 변환기 클래스
+class StandardScalerClone(BaseEstimator, TransformerMixin) :
+    def __init__(self, with_mean=True): # 평균을 뺴는 동작을 할지 말지 결정
+        self.with_mean = with_mean
+    
+    def fit(self, X, y=None) :
+        X = check_array(X) # 입력이 올바른 배열인지 검사
+        self.mean = X.mean(axis=0) # 각 특성의 평균을 계산하여 저장
+        self.n_features_in_ = X.shape[1] # 입력 데이터의 특성 개수를 기록. scikit-learn에서는 변환기나 모델이 훈련된 후 몇 개 특성으로 훈련됐는지 확인할 때 이 속성을 사용
+        return self
+    
+    def transform(self, X) :
+        check_is_fitted(self) 
+        X = check_array(X) # X가 적절한 형태의 배열인지 확인하고 변환
+        assert self.n_features_in_ == X.shape[1] # 훈련 데이터와 같은 특성 수인지 확인
+        # assert 조건이 참인지 확인
+        if self.with_mean: 
+            X = X - self.mean # 각 특성에서 평균을 빼는 작업(중심화)
+            return X/self.scale_ # 표준화
+        
+        
+from sklearn.cluster import KMeans
+
+class ClusterSimilarity(BaseEstimator, TransformerMixin) :
+    def __init__(self, n_clusters=10, gamma=1.0, random_state=None): # 초기화
+        self.n_cluster = n_clusters 
+        self.gamma = gamma
+        self.random_state = random_state
+        
+    def fit(self, X, y=None, sample_weight=None) : # KMeans를 데이터 X에 학습시켜서 클러스터 중심을 찾음
+        self.kmeans = KMeans(self.n_cluster, random_state=self.random_state) # sample_weight가 있으면 가중치를 적용 가능
+        self.kmeans_.fit(X, sample_weight=sample_weight) #학습된 KMeans 객체가 저장
+    
+    def transform(self, X) :
+        # 데이터 X를 클러스터 중심과 비교하여 RBF 커널 유사도를 계산
+        # 각 클러스터와의 유사도 벡터
+        # 이 값들을 새로운 특성으로 사용 가능
+        return rbf_kernel(X, self.kmeans_.cluster_centers_, gamma=self.gamma)
+    
+    def get_feature_names_out(self, names=None) :
+        return[f"클러스터 {i} 유사도" for i in range(self.n_clusters)]
+    
+
