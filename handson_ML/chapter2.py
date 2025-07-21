@@ -255,7 +255,7 @@ model = TransformedTargetRegressor(LinearRegression(),
                                    transformer=StandardScaler())
 model.fit(housing[["median_income"]], housing_lables)
 predictions = model.predict(some_new_data)
-print(predictions)
+#print(predictions)
 
 # 로그 변환과 역변환을 자동으로 할 수 있도록 설정 한 후, 데이터에 로그 변환을 적용 
 log_transformer = FunctionTransformer(np.log, inverse_func=np.exp)
@@ -304,18 +304,18 @@ class StandardScalerClone(BaseEstimator, TransformerMixin) :
             X = X - self.mean # 각 특성에서 평균을 빼는 작업(중심화)
             return X/self.scale_ # 표준화
         
-        
 from sklearn.cluster import KMeans
 
 class ClusterSimilarity(BaseEstimator, TransformerMixin) :
     def __init__(self, n_clusters=10, gamma=1.0, random_state=None): # 초기화
-        self.n_cluster = n_clusters 
+        self.n_clusters = n_clusters 
         self.gamma = gamma
         self.random_state = random_state
         
     def fit(self, X, y=None, sample_weight=None) : # KMeans를 데이터 X에 학습시켜서 클러스터 중심을 찾음
-        self.kmeans = KMeans(self.n_cluster, random_state=self.random_state) # sample_weight가 있으면 가중치를 적용 가능
+        self.kmeans_= KMeans(self.n_clusters, random_state=self.random_state) # sample_weight가 있으면 가중치를 적용 가능
         self.kmeans_.fit(X, sample_weight=sample_weight) #학습된 KMeans 객체가 저장
+        return self
     
     def transform(self, X) :
         # 데이터 X를 클러스터 중심과 비교하여 RBF 커널 유사도를 계산
@@ -327,3 +327,170 @@ class ClusterSimilarity(BaseEstimator, TransformerMixin) :
         return[f"클러스터 {i} 유사도" for i in range(self.n_clusters)]
     
 
+cluster_simil = ClusterSimilarity(n_clusters=10, gamma=1, random_state=42)
+similarties = cluster_simil.fit_transform(housing[["latitude", "longitude"]],
+                                          sample_weight = housing_lables)
+
+#print(similarties[:3].round(2))
+
+# 변환 파이프라인 
+
+from sklearn.pipeline import Pipeline
+
+# pipeline을 이용해서 숫자형 데이터 전처리 단계를 체인처럼 연결
+# 수치형 데이터에 대해 결측값 처리 + 표준화를 순서대로 자동으로 처리하는 파이프라인
+
+num_pipeline = Pipeline([
+    ("impute", SimpleImputer(strategy="median")), # 결측값을 특성별 중앙값으로 채움
+    ("standardize", StandardScaler()), # 데이터 스케일
+])
+
+from sklearn.pipeline import make_pipeline
+
+num_pipeline = make_pipeline(SimpleImputer(strategy="median"), StandardScaler())
+
+housing_num_prepared = num_pipeline.fit_transform(housing_num) #결측치를 채우고, 스케일링 실행
+#print(housing_num_prepared[:2].round(2))
+
+# 결과를 데이터프레임으로 재구성
+df_housing_num_prepared = pd.DataFrame(
+    housing_num_prepared, columns=num_pipeline.get_feature_names_out(), 
+    index=housing_num.index)
+print(df_housing_num_prepared)
+
+from sklearn.compose import ColumnTransformer
+
+# 수치형 특성과 범주형 특성 다른 전처리기로 처리 
+# SimpleImputer : 결측값을 가장 많이 등장하는 값으로 채움
+num_attribs = ["longitude", "latitude", "housing_median_age", "total_rooms", "total_bedrooms", "population", "households",  "median_income"]
+cat_attribs = ["ocean_proximity"]
+
+cat_pipeline = make_pipeline(
+    SimpleImputer(strategy="most_frequent"),
+    OneHotEncoder(handle_unknown="ignore") # 훈련에 없는 값이 들어오면 무시 
+)
+
+preprocessing = ColumnTransformer([
+    ("num", num_pipeline, num_attribs),
+    ("cat", cat_pipeline, cat_attribs)
+])
+
+from sklearn.compose import make_column_selector, make_column_transformer
+
+preprocessing = make_column_transformer(
+    (num_pipeline, make_column_selector(dtype_include=np.number)),
+    (cat_pipeline, make_column_selector(dtype_include=object))
+)
+
+housing_prepared = preprocessing.fit_transform(housing)
+
+
+# 기존 데이터에 비율 계산, 로그 변환, 클러스터 유사도, 범주형 인코딩, 기본 스케일링을 조합하여 
+#  머신러닝 모델에 최적화된 특성으로 변환하기 위한 자동화된 전처리기
+
+def column_ratio(X) :
+    return X[:, [0]] / X[:, [1]] # 두열의 비율 계산
+
+def ratio_name(function_transformer, feature_name_in) :
+    return ["ratio"]
+
+def ratio_pipeline() : # 스케일링 전처리
+    return make_pipeline(
+        SimpleImputer(strategy="median"),
+        FunctionTransformer(column_ratio, feature_names_out=ratio_name),
+        StandardScaler()
+    )
+    
+log_pipeline = make_pipeline( # 로그 변환
+    SimpleImputer(strategy="median"),
+    FunctionTransformer(np.log, feature_names_out="one-to-one"),
+    StandardScaler()
+)
+
+# RBF 기반 클러스터 유사도 변환기
+cluster_simil = ClusterSimilarity(n_clusters=10, gamma=1, random_state=42)
+
+# 기본 수치형 데이터용 파이프라인
+default_num_pipeline = make_pipeline(SimpleImputer(strategy="median"),
+                                     StandardScaler())
+
+preprocessing = ColumnTransformer([
+    ("bedroms", ratio_pipeline(), ["total_bedrooms", "total_rooms"]), # 비율변환
+    ("rooms_per_house", ratio_pipeline(), ["total_rooms","households"]), # 비율변환
+    ("people_per_house", ratio_pipeline(), ["population", "households"]), # 비율변환
+    ("log", log_pipeline, ["total_bedrooms", "total_rooms", "population",  # 로그변환
+                           "households", "median_income"]), 
+    ("geo", cluster_simil, ["latitude","longitude"]), # 클라스터 유사도
+    ("cat", cat_pipeline, make_column_selector(dtype_include=object)), # 범주형 인코딩
+    ],
+    remainder=default_num_pipeline) # 기본 수치형 변환
+
+# 모델 선택과 훈련
+
+from sklearn.linear_model import LinearRegression
+
+lin_reg = make_pipeline(preprocessing, LinearRegression())
+lin_reg.fit(housing, housing_lables)
+
+housing_predictions = lin_reg.predict(housing)
+print(housing_predictions[:5].round(-2))
+print(housing_lables.iloc[:5].values)
+
+from sklearn.metrics import root_mean_squared_error
+
+lin_rmse = root_mean_squared_error(housing_lables, housing_predictions)
+
+from sklearn.tree import DecisionTreeRegressor
+
+tree_reg = make_pipeline(preprocessing, DecisionTreeRegressor(random_state=42))
+tree_reg.fit(housing, housing_lables)
+
+housing_predictions = tree_reg.predict(housing)
+
+tree_rmse = root_mean_squared_error(housing_lables, housing_predictions)
+print(tree_rmse)
+
+# 교차검증으로 평가하기 
+
+from sklearn.model_selection import cross_val_score
+
+# tree_reg : 훈련시킬 결정 트리 회귀 모델
+# housing : 입력데이터
+# housing_labels : 타깃값
+# scoring="neg_root_mean_squared_error" : 평가지표(평균 제곱근 오차)
+# 10겹 교차 검증
+tree_rmses = -cross_val_score(tree_reg, housing, housing_lables, scoring="neg_root_mean_squared_error", cv=10)
+
+print(pd.Series(tree_rmses).describe())
+
+
+from sklearn.ensemble import RandomForestRegressor
+
+forest_reg = make_pipeline(preprocessing, RandomForestRegressor(random_state=42))
+forest_rmses = -cross_val_score(tree_reg, housing, housing_lables, scoring="neg_root_mean_squared_error", cv=10)
+print(pd.Series(tree_rmses).describe())
+
+# 모델 미세 튜닝
+
+# 그리드 서치 
+from sklearn.model_selection import GridSearchCV
+
+full_pipeline = Pipeline([
+    ("preprocessing", preprocessing),
+    ("random_forest", RandomForestRegressor(random_state=42)),
+])
+
+param_grid = [
+    {'preprocessing__geo__n_clusters' : [5,8,10],
+     'random_forest__max_features' :[4,6,8]},
+    { 'preprocessing__geo__n_clusters' : [10,15],
+     'random_forest__max_features' :[6,6,10]}
+]
+
+grid_search = GridSearchCV(full_pipeline, param_grid, cv=3,
+                           scoring="neg_root_mean_squared_error")
+grid_search.fit(housing, housing_lables)
+
+cv_res = pd.DataFrame(grid_search.cv_results_)
+print(cv_res.sort_values(by="mean_test_score", ascending=False, inplace=True))
+print(cv_res.head())
