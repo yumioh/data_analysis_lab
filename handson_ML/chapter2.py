@@ -494,3 +494,60 @@ grid_search.fit(housing, housing_lables)
 cv_res = pd.DataFrame(grid_search.cv_results_)
 print(cv_res.sort_values(by="mean_test_score", ascending=False, inplace=True))
 print(cv_res.head())
+
+# 랜덤서치 
+# 하이퍼파라미터 값이 연속적이면 랜던 서치를 1000번 실행했을때 각 하이퍼파라미터마다 1000개 다른 값을 탐색. 반면 그리드 서치는 하이퍼파라미터에 대해 나열한 몇 개의 값을 탐색
+
+from sklearn.model_selection import RandomizedSearchCV
+from scipy.stats import randint
+
+# full_pipelines이라는 파이프라인의 하이퍼파라미터를 튜닝. housing 데이터를 기반으로 housing_labels을 예측
+
+# radint는 scipy.stats의 함수로 랜덤하게 정수를 샘플링
+# preprocessing__geo__n_clusters : geo 단계의 클라수터 수 
+# random_forest__max_features : 각 노드에서 고려할 특성의 수 
+param_distribs = {'preprocessing__geo__n_clusters' : randint(low=3, high=50),
+                  'random_forest__max_features' : randint(low=2, high=20)}
+
+# 전치리, 예측 모델이 합쳐진 파이프라인 객체 
+rnd_search = RandomizedSearchCV(
+    full_pipeline, param_distributions=param_distribs, #
+    n_iter=10, #10개의 다른 조합을 랜덤
+    cv=3, # 3겹 교차 검증 수행
+    scoring='neg_root_mean_squared_error', #음수 RMSE 사용 (클수록 좋음)
+    random_state=42) # 재현성을 위한 난수 시드 고정
+
+rnd_search.fit(housing, housing_lables)
+print(rnd_search.best_params_)
+
+# 앙상블 방법
+
+final_model = rnd_search.best_estimator_ # 전처리 포함
+feature_importances = final_model["random_forest"].feature_importances_
+print(feature_importances.round(2))
+
+sorted(zip(feature_importances,
+           final_model["preprocessing"].get_feature_names_out()),
+       reverse=True)
+
+# 테스트 세트로 시스템 평가하기 
+
+# 테스트 데이터셋에 대한 예측 결과를 기반으로 RMSE를 계산하는 부분
+X_test = strat_test_set.drop("median_house_value", axis=1)
+y_test = strat_test_set["median_house_value"].copy()
+
+final_predictions = final_model.predict(X_test)
+
+final_rmse = root_mean_squared_error(y_test, final_predictions)
+print(final_rmse)
+
+from scipy import stats
+confidence = 0.95
+squared_errors = (final_predictions - y.test) ** 2
+np.sqrt(stats.t.interval(confidence, len(squared_errors)-1,
+                         loc=squared_errors.mean(),
+                         scale= stats.sem(squared_errors)))
+
+import joblib
+# 모델 저장
+joblib.dump(final_model, "my_california_housing_model.pkl")
