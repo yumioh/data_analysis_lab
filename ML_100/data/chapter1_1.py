@@ -7,8 +7,8 @@ m_store = pd.read_csv("./ML_100/data/m_store.csv")
 m_area = pd.read_csv("./ML_100/data/m_area.csv")
 
 # 주문 데이터 로딩
-currend_dir = os.getcwd()
-tbl_order_file = os.path.join(currend_dir+'\\ML_100\\data\\', 'tbl_order_*.csv')
+current_dir = os.getcwd()
+tbl_order_file = os.path.join(current_dir+'\\ML_100\\data\\', 'tbl_order_*.csv')
 tbl_order_files = glob.glob(tbl_order_file)
 order_all = pd.DataFrame()
 
@@ -35,7 +35,7 @@ order_data.loc[order_data['status'] == 2, 'status_name'] = '배달완료'
 order_data.loc[order_data['status'] == 3, 'status_name'] = '주문취소'
 
 # 파일에 저장
-output_dir = os.path.join(currend_dir, 'output_data')
-os.makedirs(output_dir, exist_ok=True)
-output_file = os.path.join(output_dir, 'order_data.csv')
+# output_dir = os.path.join(currend_dir, 'output_data')
+# os.makedirs(output_dir, exist_ok=True)
+output_file = os.path.join(current_dir+'\\ML_100\\data\\', 'order_data.csv')
 order_data.to_csv(output_file, index=False)
