@@ -76,7 +76,7 @@ pre_data = pd.pivot_table(
 # agg : 그룹별로 합계, 평균, 개수, 최대값 등 다양한 통게 계산을 한 번에 처리할 수 있게 해주는 메서드
 # reset_index(drop=True) : 인덱스 초기화 
 store_clustering = analyze_data.groupby('store_id')
-store_clustering_= store_clustering['total_amount'].agg(['mean', 'median', 'max', 'min', 'size']).reset_index(drop=True)
+store_clustering_= store_clustering['total_amount'].agg(['size','mean', 'median', 'max', 'min']).reset_index(drop=True)
 print(store_clustering_)
 
 import seaborn as sns
@@ -87,11 +87,36 @@ from sklearn.cluster import KMeans
 from sklearn.preprocessing import StandardScaler
 
 # _winapi.CreateProcess 내부에서 병렬 처리를 위해 코어 수를 확인하려고 사용하려는데 내부적으로 호출할때 문제 발생시 나옴 
+
+# 데이터의 자릿수가 다를 가능성이 있는 경우 표준화 작업을 통해 스케일을 맞춰야함 
 sc = StandardScaler()
 store_clustering_sc = sc.fit_transform(store_clustering_)
 
 kmeans = KMeans(n_clusters=4, random_state=0, n_init='auto')
 clusters = kmeans.fit(store_clustering_sc)
 store_clustering_['cluster'] = clusters.labels_
-print(store_clustering_['cluster'].unique())
-print(store_clustering_.head())
+# print(store_clustering_['cluster'].unique())
+#print(store_clustering_.head())
+
+store_clustering_.columns = ['월건수','월평균값','월중앙값','월최대값','월최소값','cluster']
+#print(store_clustering_)
+store_clustering_ct= store_clustering_.groupby('cluster').count()
+print(store_clustering_ct.head())
+store_clustering_mn = store_clustering_.groupby('cluster').mean()
+print(store_clustering_mn.head())
+
+# 클러스터링 결과를 t-SNE로 시각화 
+# TSNE: 고차원 데이터를 저차원으로 압축으로 비선형 차원 축소 기법
+
+from sklearn.manifold import TSNE
+
+plt.clf()
+tsne = TSNE(n_components=2, random_state=0)
+x = tsne.fit_transform(store_clustering_sc)
+tsne_df = pd.DataFrame(x)
+tsne_df['cluster'] = store_clustering_['cluster']
+tsne_df.columns = ['axis_0', 'axis_1', 'cluster']
+print(tsne_df.head())
+
+tsne_graph = sns.scatterplot(x='axis_0', y='axis_1', hue='cluster', data=tsne_df)
+plt.show()
