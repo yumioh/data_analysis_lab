@@ -197,53 +197,7 @@ def get_delivery_rank_store(target_id, target_df) :
     store_delivery_rank = delivery_rank.loc[delivery_rank['store_id'] == target_id].index + 1
     return store_delivery_rank[0]
 
-def make_report_hq_r2(target_date_list, output_folder) : 
-    wb = openpyxl.Workbook()
-    
-    file_date = ''
-
-    for tmp in target_date_list : 
-        df = pd.DataFrame(tmp)
-        
-        df_date = pd.to_datetime(df['order_accept_date']).max()
-        trg_date = df_date.strftime("%Y%m")
-        
-        if file_date ==  "":
-            # 처음에만 파일허용
-            file_date = trg_date
-        
-        rank = get_rank_df(df)
-        cancel_rank = get_cancel_rank_df(df)
-        
-        ws = wb.create_sheet(title=f'{trg_date}월분')
-        
-        cell = ws.cell(1,1)
-        cell.value = f'본부용 {trg_date}월분 요약 보고서'
-        cell.font = Font(bold=True, color="008080", size=20)
-        
-        cell = ws.cell(3,2)
-        cell.value = f'{max_str_date}월분 매출 총액'
-        cell.font = Font(bold=True, color="008080", size=20)
-        
-        cell = ws.cell(3,6)
-        cell.value = f'{'{:,}'.format(rank['total_amount'].sum())}'
-        cell.font = Font(bold=True, color="008080", size=20)
-        
-        cell = ws.cell(5,2)
-        cell.value = f'매출순위'
-        cell.font = Font(bold=True, color='0008080', size=16)
-        
-        data_export(rank, ws, 6, 2)
-        
-        # 주문 취소율 순위를 직접 출력
-        cell = ws.cell(5,8)
-        cell.value = f'주문 취소율 순위'
-        cell.font = Font(bold=True, color='008080', size=16)
-        
-        data_export(cancel_rank, ws, 6,8)
-    
-
-def make_report_store_r2(target_data, target_id, output_folder) : 
+def make_report_store(target_data, target_id, output_folder) : 
     rank = get_store_rank(target_id, target_data)
     sale = get_store_sale(target_id, target_data)
     cancel_rank = get_store_cancel_rank(target_id, target_data)
@@ -321,7 +275,134 @@ def make_report_store_r2(target_data, target_id, output_folder) :
     
     wb.save(os.path.join(output_folder, f'{target_id}_{store_name}_report_{max_str_date}.xlsx'))
     wb.close()
+
+def make_report_hq_r2(target_date_list, output_folder) : 
+    wb = openpyxl.Workbook()
     
+    file_date = ''
+
+    for tmp in target_date_list : 
+        df = pd.DataFrame(tmp)
+        
+        df_date = pd.to_datetime(df['order_accept_date']).max()
+        trg_date = df_date.strftime("%Y%m")
+        
+        if file_date ==  "":
+            # 처음에만 파일허용
+            file_date = trg_date
+        
+        rank = get_rank_df(df)
+        cancel_rank = get_cancel_rank_df(df)
+        
+        ws = wb.create_sheet(title=f'{trg_date}월분')
+        
+        cell = ws.cell(1,1)
+        cell.value = f'본부용 {trg_date}월분 요약 보고서'
+        cell.font = Font(bold=True, color="008080", size=20)
+        
+        cell = ws.cell(3,2)
+        cell.value = f'{max_str_date}월분 매출 총액'
+        cell.font = Font(bold=True, color="008080", size=20)
+        
+        cell = ws.cell(3,6)
+        cell.value = f'{'{:,}'.format(rank['total_amount'].sum())}'
+        cell.font = Font(bold=True, color="008080", size=20)
+        
+        cell = ws.cell(5,2)
+        cell.value = f'매출순위'
+        cell.font = Font(bold=True, color='0008080', size=16)
+        
+        data_export(rank, ws, 6, 2)
+        
+        # 주문 취소율 순위를 직접 출력
+        cell = ws.cell(5,8)
+        cell.value = f'주문 취소율 순위'
+        cell.font = Font(bold=True, color='008080', size=16)
+        
+        data_export(cancel_rank, ws, 6,8)
+        
+        wb.remove(wb.worksheets[0])
+        
+        wb.save(os.path.join(output_folder, f'report_hq_{file_date}.xlsx'))
+        wb.close()
+    
+def make_report_store_r2(target_data_list, target_id, output_folder) :
+    wb = openpyxl.Workbook()
+    
+    file_date = ''
+    
+    for tmp in target_data_list : 
+        df = pd.DataFrame(tmp)
+        
+        df_date = pd.to_datetime(df['order_accept_date']).max()
+        trg_date = df_date.strftime("%Y%m")
+        
+        if file_date == " " :
+            file_date = trg_date
+            
+        rank = get_store_rank(target_id, df)
+        sale = get_store_sale(target_id, df)
+        cancel_rank = get_store_cancel_rank(target_id, df)
+        cancel_count = get_store_cancel_count(target_id, df)
+        delivery_df = get_delivery_rank_df(target_id, df)
+        delivery_rank = get_delivery_rank_store(target_id, df)
+        
+        store_name = m_store.loc[m_store['store_id'] == target_id]['store_name'].values[0]
+        
+        ws = wb.create_sheet(title=f'{trg_date}년도')   
+        
+        cell = ws.cell(1,1)
+        cell.value = f'본부용 {trg_date}월분 요약 보고서'
+        cell.font = Font(bold=True, color="008080", size=20)
+        
+        cell = ws.cell(3,2)
+        cell.value = f'{max_str_date}월분 매출 총액'
+        cell.font = Font(bold=True, color="008080", size=20)
+        
+        cell = ws.cell(3,6)
+        cell.value = f'{'{:,}'.format(sale.values[0])}'
+        cell.font = Font(bold=True, color="008080", size=20)
+        
+        cell = ws.cell(5,2)
+        cell.value = f'매출순위'
+        cell.font = Font(bold=True, color='0008080', size=16)
+        
+        cell = ws.cell(5,5)
+        cell.value = f'{rank}위'
+        cell.font = Font(bold=True, color='0008080', size=16)
+        
+        cell = ws.cell(6,2)
+        cell.value = f'매출데이터'
+        cell.font = Font(bold=True, color='0008080', size=16)
+        
+        # 테이블 삽입
+        tmp_df = df.loc[df(['store_id'] == target_id) & 
+                        (df['status'].isin([1,2]))]
+        tmp_df = tmp_df[['order_accept_date', 'customer_id', 'total_amount', 'takeout_name', 'status_name']]
+                
+        data_export(cancel_rank, ws, 7,8)
+        
+        # 배달 완료 소요 시간 직접 출력 
+        ave_time = delivery_df.loc[delivery_df['store_id'] == target_id['delta'].values[0]]
+
+        cell = ws.cell(5,14)
+        cell.value = f'배달 완료 소요 시간 순위'
+        cell.font = Font(bold=True, color='008080', size=16)
+        
+        cell = ws.cell(5, 18)
+        cell.value = f'{delivery_rank}위, 평균 {ave_time}분'
+        cell.font = Font(bold=True, color="008080", size=16)
+        
+        cell = ws.cell(6, 14)
+        cell.value = f'각 매장의 배달 시간 순위'
+        cell.font = Font(bold=True, color="008080", size=16)
+        
+        data_export(delivery_df, ws, 7, 14)        
+        
+        wb.remove(wb.worksheets[0])
+        
+        wb.save(os.path.join(output_folder, f'{target_id}_{store_name}_report_{file_date}.xlsx'))
+        wb.close()
     
 # 본부용 보고서
 make_report_hq(target_data, output_dir)
@@ -385,4 +466,10 @@ def order_by_date(val) :
     
     print("데이터 분비 완료. 보고서를 생성합니다...")
     
-    make_report_hq_r2()
+    make_report_hq_r2(df_array, target_output_dir)
+    
+    print(f'관리 보고서 생성 완료. 매장용 보고서를 생성합니다...')
+    
+    for store_id in m_store.loc[m_store['store_id'] != 999]['store_id'] :
+        area_cd = m_store.loc[m_store['store_id'] == store_id]['area_cd ']
+        area_name = m_area.loc[m_area['area_cd'] == area_cd.values[0]]['narrow_arae'].values[0]
