@@ -280,7 +280,6 @@ def make_report_hq_r2(target_date_list, output_folder) :
     wb = openpyxl.Workbook()
     
     file_date = ''
-
     for tmp in target_date_list : 
         df = pd.DataFrame(tmp)
         
@@ -310,7 +309,7 @@ def make_report_hq_r2(target_date_list, output_folder) :
         
         cell = ws.cell(5,2)
         cell.value = f'매출순위'
-        cell.font = Font(bold=True, color='0008080', size=16)
+        cell.font = Font(bold=True, color='008080', size=16)
         
         data_export(rank, ws, 6, 2)
         
@@ -363,74 +362,75 @@ def make_report_store_r2(target_data_list, target_id, output_folder) :
         cell.value = f'{'{:,}'.format(sale.values[0])}'
         cell.font = Font(bold=True, color="008080", size=20)
         
+        # 매출 순위를 직접 생성
         cell = ws.cell(5,2)
         cell.value = f'매출순위'
-        cell.font = Font(bold=True, color='0008080', size=16)
+        cell.font = Font(bold=True, color='008080', size=16)
         
         cell = ws.cell(5,5)
         cell.value = f'{rank}위'
-        cell.font = Font(bold=True, color='0008080', size=16)
+        cell.font = Font(bold=True, color='008080', size=16)
         
         cell = ws.cell(6,2)
-        cell.value = f'매출데이터'
-        cell.font = Font(bold=True, color='0008080', size=16)
+        cell.value = f'매출 데이터'
+        cell.font = Font(bold=True, color='008080', size=16)
         
         # 테이블 삽입
-        tmp_df = df.loc[df(['store_id'] == target_id) & 
-                        (df['status'].isin([1,2]))]
+        tmp_df = df.loc[(df['store_id'] == target_id) & 
+                        (df['status'] == 9)]
         tmp_df = tmp_df[['order_accept_date', 'customer_id', 'total_amount', 'takeout_name', 'status_name']]
-                
-        data_export(cancel_rank, ws, 7,8)
-        
-        # 배달 완료 소요 시간 직접 출력 
-        ave_time = delivery_df.loc[delivery_df['store_id'] == target_id['delta'].values[0]]
+        data_export(tmp_df, ws, 7, 8)
 
+        # 배달 완료 소유 시간 직접 출력
+        ave_time = delivery_df.loc[delivery_df['store_id'] == target_id]['delta'].values[0]
         cell = ws.cell(5,14)
-        cell.value = f'배달 완료 소요 시간 순위'
+        cell.value = f'배달 완료 소유 시간 순위'
         cell.font = Font(bold=True, color='008080', size=16)
         
         cell = ws.cell(5, 18)
-        cell.value = f'{delivery_rank}위, 평균 {ave_time}분'
+        cell.value = f'{delivery_rank}위, 평균 {ave_time}회'
         cell.font = Font(bold=True, color="008080", size=16)
         
         cell = ws.cell(6, 14)
         cell.value = f'각 매장의 배달 시간 순위'
         cell.font = Font(bold=True, color="008080", size=16)
         
-        data_export(delivery_df, ws, 7, 14)        
-        
         wb.remove(wb.worksheets[0])
         
         wb.save(os.path.join(output_folder, f'{target_id}_{store_name}_report_{file_date}.xlsx'))
         wb.close()
-    
-# 본부용 보고서
-make_report_hq(target_data, output_dir)
 
-# 각 매장용 보고서
-for store_id in m_store.loc[m_store['store_id'] != 999]['store_id'] :
-    make_report_store_r2(target_data, store_id, output_dir)
-      
-      
 def make_active_folder(targetYM) :
     now = datetime.datetime.now().strftime('%Y%m%d%H%M%S')
     target_output_dir_name = targetYM + "_" + now
     target_output_dir = os.path.join(output_dir, target_output_dir_name)
     os.makedirs(target_output_dir)
     print(target_output_dir_name)
-    return target_output_dir
+    return target_output_dir      
 
+# 자동으로 지정한 연월의 1개월 데이터를 로딩해 배열에 저장한다
+tg_ym_old = str(int(tg_ym) - 1)
+target_file = 'tbl_order_' + tg_ym_old + ".csv"
+target_data_old = pd.read_csv(os.path.join(input_dir, target_file))
+
+# 과거 데이터 초기화 
+target_data_old = init_tran_df(target_data_old)
+
+df_array = [target_data, target_data_old] 
+
+# 폴더 동적 생성
 target_output_dir = make_active_folder(tg_ym)
 
-# 본부용 보고서(생성 위치 변경)
-make_report_hq_r2(target_data, target_output_dir)
+# 본부용 보고서 R2 보고
+make_report_hq_r2(df_array, output_dir)
 
+# 각 매장용 보고서
 for store_id in m_store.loc[m_store['store_id'] != 999]['store_id'] :
     area_cd = m_store.loc[m_store['store_id'] == store_id]['area_cd']
     area_name = m_area.loc[m_area['area_cd'] == area_cd.values[0]]['narrow_area'].values[0]
     target_store_output_dir = os.path.join(target_output_dir, area_name)
     os.makedirs(target_store_output_dir, exist_ok=True)
-    make_report_store(target_data, store_id, target_store_output_dir) 
+    make_report_store_r2(df_array, store_id, target_store_output_dir) 
     
 def order_by_date(val) : 
     clear_output()
@@ -460,6 +460,7 @@ def order_by_date(val) :
     target_ym_old = str(int(target_ym) - 1)
     target_file = 'tbl_order' + target_ym_old + ".csv"
     if os.path.exists(os.path.join(input_dir, target_file)) == True:
+        # 데이터가 존재하는 경우
         df = pd.read_csv(os.path.join(input_dir, target_file))
         df = init_tran_df(df)
         df_array.append(df)
@@ -473,3 +474,13 @@ def order_by_date(val) :
     for store_id in m_store.loc[m_store['store_id'] != 999]['store_id'] :
         area_cd = m_store.loc[m_store['store_id'] == store_id]['area_cd ']
         area_name = m_area.loc[m_area['area_cd'] == area_cd.values[0]]['narrow_arae'].values[0]
+        target_store_output_dir = os.path.join(target_output_dir, area_name)
+        os.makedirs(target_store_output_dir, exist_ok=True)
+        make_report_store_r2(df_array, store_id, target_output_dir)
+        
+    print("처리를 완료했습니다.")
+    
+date_picker = DatePicker(value=datetime.datetime(2021, 4, 1))
+date_picker.observe(order_by_date, names="value")
+print(f"데이터를 0_input 폴더에 복사한 뒤, 기준 월을 선택하시오 ")
+display(date_picker)
